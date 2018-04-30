@@ -1,0 +1,10 @@
+up “item1_price” 100
+up “item2_price” 200
+up “item3_price” 300
+up “item4_price” 400
+sleep 500
+read “item1_price”
+up “item1_price” 1000
+gc
+sleep 100
+read “item1_price” “item3_price” “item4_price”
