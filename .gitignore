@@ -1,2 +1,5 @@
 .DS_Store
 *.beam
+.idea
+*.dump
+hello.erl

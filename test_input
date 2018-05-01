@@ -5,6 +5,6 @@ up “item4_price” 400
 sleep 500
 read “item1_price”
 up “item1_price” 1000
-gc
 sleep 100
+gc
 read “item1_price” “item3_price” “item4_price”
