@@ -20,8 +20,10 @@ loop(Store) ->
   receive
     % Receive an UP request and transmit to Store
     {Client, {up, Key, Value}} ->
-      Status = Store ! {self(), {up, Key, Value}},
-      Client ! {self(), Status};
+      Store ! {self(), {up, Key, Value}},
+      receive
+        {Store, Status} -> Client ! {self(), Status}
+      end;
     % Receive a READ request with Keys and transmit to Store
     {Client, {read, Keys}} ->
       Values = process_reads(Store, Keys),
@@ -41,8 +43,10 @@ loop(Store) ->
 %%----------------------------------------------------------------------
 
 process_reads(Store, [Head|Tail]) ->
-  Response = Store ! {self(), {read, timestamp(), Head}},
-  [Response, process_reads(Store, Tail)];
+  Store ! {self(), {read, timestamp(), Head}},
+  receive
+    {Store, Val} -> [Val | process_reads(Store, Tail)]
+  end;
 
 process_reads(_, []) -> [].
 

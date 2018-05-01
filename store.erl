@@ -27,7 +27,7 @@ loop(Partition, Buffer) ->
     {Manager, {read, SnapshotTime, Key}} ->
       try
         #{Key := Submap} = Partition,
-        case SnapshotTime > timestamp() of
+        case SnapshotTime =< timestamp() of
           true ->
             Timestamps = lists:reverse(maps:keys(Submap)),
             Val = read_most_recent_value(Submap, Timestamps, SnapshotTime),
@@ -58,8 +58,9 @@ read_most_recent_value(Map, [Head | Tail], SnapshotTime) ->
   case Head =< SnapshotTime of
     true -> maps:get(Head, Map);
     false -> read_most_recent_value(Map, Tail, SnapshotTime)
-  end.
+  end;
 
+read_most_recent_value(Map, Elem, _) -> maps:get(Elem, Map).
 
 
 %%----------------------------------------------------------------------
