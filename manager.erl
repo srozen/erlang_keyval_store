@@ -20,16 +20,17 @@ loop(Store) ->
   receive
     % Receive an UP request and transmit to Store
     {Client, {up, Key, Value}} ->
-      Status = Store ! {self(), {up, Key, Value}},
-      Client ! {self(), Status};
+      %Status = Store ! {self(), {up, Key, Value}},
+      Client ! {self(), "UP OK~n"};
     % Receive a READ request with Keys and transmit to Store
     {Client, {read, Keys}} ->
-      Values = process_reads(Store, Keys),
-      Client ! {self(), Values};
+      %Values = process_reads(Store, Keys),
+      Client ! {self(), "READ OK~n"};
     % Receive a GC, do nothing for the moment
     {Client, {gc}} ->
-      Client ! {self(), ok}
-  end.
+      Client ! {self(), "GC OK~n"}
+  end,
+  loop(Store).
 
 %%----------------------------------------------------------------------
 %% Function: process_reads/2
