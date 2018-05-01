@@ -29,7 +29,8 @@ loop(Store) ->
     % Receive a GC, do nothing for the moment
     {Client, {gc}} ->
       Client ! {self(), ok}
-  end.
+  end,
+  loop(Store).
 
 %%----------------------------------------------------------------------
 %% Function: process_reads/2
