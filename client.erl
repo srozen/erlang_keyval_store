@@ -19,9 +19,7 @@
  up(Manager, Key, Value) ->
    Manager ! {self(), {up, Key, Value}},
    receive
-     {Manager, Status} ->
-       io:format(Status),
-       io:format("~n")
+     {Manager, Status} -> Status
    end.
 
  %%----------------------------------------------------------------------
@@ -35,9 +33,7 @@
 read(Manager, Keys) ->
   Manager ! {self(), {read, Keys}},
   receive
-    {Manager, Values} ->
-      io:format(Values),
-      io:format("~n")
+    {Manager, Values} -> Values
   end.
 
 %%----------------------------------------------------------------------
@@ -48,11 +44,9 @@ read(Manager, Keys) ->
 %%----------------------------------------------------------------------
 
 gc(Manager) ->
-  Manager ! {self(), {gc}},
+  Manager ! {self(), gc},
   receive
-    {Manager, Status} ->
-      io:format(Status),
-      io:format("~n")
+    {Manager, Status} -> Status
   end.
 
 %%----------------------------------------------------------------------
@@ -64,7 +58,6 @@ gc(Manager) ->
 
 sleep(Time) ->
   timer:sleep(Time),
-  io:format("SLEEP ok~n"),
   ok.
 
 %%----------------------------------------------------------------------
@@ -95,23 +88,22 @@ read_input(Manager) ->
 %%           List of requests to make
 %% Returns:
 %%----------------------------------------------------------------------
-loop(Manager, []) ->
+loop(_, []) ->
   io:format("End~n");
 loop(Manager, [H|T]) ->
   List = string:tokens(H," "),
-  erlang:display(List),
   case List of
     [A|B] when A =:= "up" ->
       [X|Y] = B,
       %%erlang:display(binary_to_list(X)),
       %% Erreur de conversion ici
       [Z|_] = Y,
-      up(Manager,X,Z);
+      erlang:display(up(Manager,X,Z));
     [A|B] when A =:= "read" ->
-      read(Manager,B);
+      erlang:display(read(Manager,B));
     [A|B] when A =:= "sleep" ->
       [X|_] = B,
-      sleep(list_to_integer(X));
+      erlang:display(sleep(list_to_integer(X)));
     [A] when A =:= "gc" -> gc(Manager);
     [] -> io:format("Other~n")
   end,
