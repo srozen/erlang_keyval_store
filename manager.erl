@@ -60,6 +60,14 @@ process_reads(_, []) -> [].
 timestamp() ->
   os:timestamp().
 
+%%----------------------------------------------------------------------
+%% Function: select_store/2
+%% Purpose:  From the list of Stores, elect the target Store to acces the Key
+%%           using a deterministic hash function.
+%% Args:     Stores, list of Stores
+%%           Key from the key/val pair
+%% Returns:  Elected Store
+%%--------------
 
 select_store(Stores, Key) ->
   select_store(Stores, 1, length(Stores), Key, {0, -1}).
@@ -75,11 +83,26 @@ select_store(Stores, Elem, LastElem, Key, {Champion, Score}) ->
       end
   end.
 
+%%----------------------------------------------------------------------
+%% Function: score/2
+%% Purpose:  Compute a score based on a value of the Store and desired Key
+%% Args:     Position of the Store in list,
+%%           Key from the key/val pair
+%% Returns:  Score
+%%--------------
+
 score(Num, Key) ->
   List = lists:concat([Num, Key]),
   Hash = binary_to_list(crypto:hash(sha, List)),
   Score = sum_list(Hash),
   1.0 / math:log(Score).
+
+%%----------------------------------------------------------------------
+%% Function: sum_list/1
+%% Purpose:  Sums a list of integers
+%% Args:     List of integers
+%% Returns:  Sum
+%%--------------
 
 sum_list(List) ->
   sum_list(List, 0).
