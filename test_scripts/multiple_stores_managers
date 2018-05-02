@@ -1,0 +1,21 @@
+% Copy Paste this in your ERL Machine to test
+
+f().
+c(store).
+c(manager).
+c(client).
+c(old_client).
+
+Store1 = store:start().
+Store2 = store:start().
+Store3 = store:start().
+
+Manager1 = manager:start([Store1, Store2, Store3]).
+Manager2 = manager:start([Store1, Store2, Store3]).
+
+client:up(Manager1, foo, 3).
+client:read(Manager2, [foo]).
+
+client:up(Manager1, bar, 68).
+client:up(Manager1, baz, 86).
+client:read(Manager2, [foo, bar, baz]).

@@ -1,0 +1,15 @@
+% Delayed read with too high timestamp
+
+f().
+c(store).
+c(manager).
+c(client).
+c(old_client).
+
+Store1 = store:start().
+
+Store1 ! {self(), {up, foo, 7}}.
+receive X -> X end.
+TimeStamp = os:system_time(seconds)+10.
+Store1 ! {self(), {read, TimeStamp, foo}}.
+receive {Store1, Values} -> Values end.
