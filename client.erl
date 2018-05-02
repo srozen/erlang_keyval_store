@@ -67,9 +67,20 @@ sleep(Time) ->
   io:format("SLEEP ok~n"),
   ok.
 
-
+%%----------------------------------------------------------------------
+%% Function: start/1
+%% Purpose:  Start the process
+%% Args:     PID of the manager
+%% Returns:
+%%----------------------------------------------------------------------
 start(Manager) -> spawn(client, read_input, [Manager]).
 
+%%----------------------------------------------------------------------
+%% Function: read_input/1
+%% Purpose:  read the input file and transform it in a readable list
+%% Args:     PID of the manager
+%% Returns:
+%%----------------------------------------------------------------------
 read_input(Manager) ->
   %% read the input files to read and write to the manager
   {ok, Binary} = file:read_file("test_input"),
@@ -77,13 +88,23 @@ read_input(Manager) ->
   Lines = string:tokens(Content, "\n"),
   loop(Manager, Lines).
 
+%%----------------------------------------------------------------------
+%% Function: loop/2
+%% Purpose:  iterate over each line of the list in parameter and launch the appropriate request
+%% Args:     PID of the manager
+%%           List of requests to make
+%% Returns:
+%%----------------------------------------------------------------------
 loop(Manager, []) ->
   io:format("End~n");
 loop(Manager, [H|T]) ->
   List = string:tokens(H," "),
+  erlang:display(List),
   case List of
     [A|B] when A =:= "up" ->
       [X|Y] = B,
+      %%erlang:display(binary_to_list(X)),
+      %% Erreur de conversion ici
       [Z|_] = Y,
       up(Manager,X,Z);
     [A|B] when A =:= "read" ->

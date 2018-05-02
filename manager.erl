@@ -1,5 +1,5 @@
 -module (manager).
--export ([start/1, loop/1]).
+-export ([gc/2, start/1, loop/1]).
 
 %%----------------------------------------------------------------------
 %% Function: start/1
@@ -20,6 +20,7 @@ loop(Stores) ->
   receive
     % Receive an UP request and transmit to Store
     {Client, {up, Key, Value}} ->
+      erlang:display(Key),
       Store = select_store(Stores, Key),
       Store ! {self(), {up, Key, Value}},
       receive
@@ -31,6 +32,8 @@ loop(Stores) ->
       Client ! {self(), Values};
     % Receive a GC, do nothing for the moment
     {Client, {gc}} ->
+      gc(length(Stores), Stores),
+      io:format("~n"),
       Client ! {self(), ok}
   end,
   loop(Stores).
@@ -58,7 +61,7 @@ process_reads(_, []) -> [].
 %% Returns:  timestamp
 %%----------------------------------------------------------------------
 timestamp() ->
-  os:timestamp().
+  os:system_time(seconds).
 
 %%----------------------------------------------------------------------
 %% Function: select_store/2
@@ -82,6 +85,22 @@ select_store(Stores, Elem, LastElem, Key, {Champion, Score}) ->
         false -> select_store(Stores, Elem+1, LastElem, Key, {Champion, Score})
       end
   end.
+
+%%----------------------------------------------------------------------
+%% Function: gc/1
+%% Purpose:  Request a garbage collection on every stores.
+%% Args:     Stores, list of Stores
+%% Returns:  Request ok
+%%--------------
+gc(N, Stores) ->
+  Store = lists:nth(N, Stores),
+  Store ! {self(), {gc}},
+  if
+    N =:= 1 ->
+      ok;
+    true ->
+      gc(N-1, Stores)
+  end .
 
 %%----------------------------------------------------------------------
 %% Function: score/2
