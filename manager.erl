@@ -1,5 +1,5 @@
 -module (manager).
--export ([gc/2, start/1, loop/1]).
+-export ([start/1, loop/1]).
 
 %%----------------------------------------------------------------------
 %% Function: start/1
@@ -20,7 +20,6 @@ loop(Stores) ->
   receive
     % Receive an UP request and transmit to Store
     {Client, {up, Key, Value}} ->
-      erlang:display(Key),
       Store = select_store(Stores, Key),
       Store ! {self(), {up, Key, Value}},
       receive
@@ -31,9 +30,8 @@ loop(Stores) ->
       Values = process_reads(Stores, Keys),
       Client ! {self(), Values};
     % Receive a GC, do nothing for the moment
-    {Client, {gc}} ->
-      gc(length(Stores), Stores),
-      io:format("~n"),
+    {Client, gc} ->
+      gc(Stores),
       Client ! {self(), ok}
   end,
   loop(Stores).
@@ -92,15 +90,12 @@ select_store(Stores, Elem, LastElem, Key, {Champion, Score}) ->
 %% Args:     Stores, list of Stores
 %% Returns:  Request ok
 %%--------------
-gc(N, Stores) ->
-  Store = lists:nth(N, Stores),
-  Store ! {self(), {gc}},
-  if
-    N =:= 1 ->
-      ok;
-    true ->
-      gc(N-1, Stores)
-  end .
+
+gc([Head | Tail]) ->
+  Head ! {self(), {gc}},
+  gc(Tail);
+
+gc([]) -> ok.
 
 %%----------------------------------------------------------------------
 %% Function: score/2
