@@ -5,7 +5,17 @@ c(store).
 c(manager).
 c(old_client).
 
-Store = store:start().
-Manager = manager:start(Store).
-old_client:up(Manager, foo, 3).
-old_client:read(Manager, [foo]).
+Store1 = store:start().
+Store2 = store:start().
+Store3 = store:start().
+
+Manager1 = manager:start([Store1, Store2, Store3]).
+Manager2 = manager:start([Store1, Store2, Store3]).
+
+old_client:up(Manager1, foo, 3).
+old_client:read(Manager2, [foo]).
+
+
+old_client:up(Manager1, bar, 68).
+old_client:up(Manager1, baz, 86).
+old_client:read(Manager2, [foo, bar, baz]).
