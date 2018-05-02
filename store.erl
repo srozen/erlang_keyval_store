@@ -1,5 +1,6 @@
 -module (store).
 -export ([start/0, loop/2]).
+-define(TIMEOUT, 1000).
 
 %%----------------------------------------------------------------------
 %% Function: start/0
@@ -29,9 +30,7 @@ loop(Partition, Buffer) ->
         #{Key := Submap} = Partition,
         case SnapshotTime =< timestamp() of
           true ->
-            Timestamps = lists:reverse(maps:keys(Submap)),
-            Val = read_most_recent_value(Submap, Timestamps, SnapshotTime),
-            Manager ! {self(), Val},
+            process_read(Submap, SnapshotTime, Manager),
             loop(Partition, Buffer);
           % We store request in buffer for further treatment
           false ->
@@ -43,7 +42,53 @@ loop(Partition, Buffer) ->
           Manager ! {self(), nil},
           loop(Partition, Buffer)
       end
+    % If we have TIMEOUT without activity -> treat stalled requests
+    after ?TIMEOUT ->
+      case length(Buffer) > 0 of
+        true ->
+          UpdatedBuffer = process_bufferized_requests(Partition, Buffer),
+          loop(Partition, UpdatedBuffer);
+        false -> loop(Partition, Buffer)
+      end
   end.
+
+%%----------------------------------------------------------------------
+%% Function: process_read/3
+%% Purpose:  From a preselected Map of a certain Key, get the most recent
+%%           value for the SnapshotTime and send to Manager
+%% Args:     Map : A submap of key/val which are timestamps/vals
+%%           SnapshotTime : The SnapshotTime from Manager
+%%           Manager : ManagerPID
+%% Returns:  N/A
+%%--------------
+
+process_read(Map, SnapshotTime, Manager) ->
+  Timestamps = lists:reverse(maps:keys(Map)),
+  Val = read_most_recent_value(Map, Timestamps, SnapshotTime),
+  Manager ! {self(), Val}.
+
+%%----------------------------------------------------------------------
+%% Function: process_bufferized_requests/2
+%% Purpose:  Fetch the BufferizedRequests and process the Reads that can
+%%           be processed (timestamp comparison)
+%% Args:     Partition : Collection of Data Stored
+%%           Buffer : The Buffer of stalled request
+%% Returns:  Updated Buffer without process
+%%--------------
+
+process_bufferized_requests(Partition, Buffer) ->
+  process_bufferized_requests(Partition, lists:reverse(Buffer), []).
+
+process_bufferized_requests(Partition, [Head | Tail], UpdatedBuffer) ->
+  {Manager, SnapshotTime, Key} = Head,
+  case SnapshotTime =< timestamp() of
+    true ->
+      #{Key := Submap} = Partition,
+      process_read(Submap, SnapshotTime, Manager),
+      process_bufferized_requests(Partition, Tail, UpdatedBuffer);
+    false -> process_bufferized_requests(Partition, Tail, [Head | UpdatedBuffer])
+  end;
+process_bufferized_requests(_, [], UpdatedBuffer) -> lists:reverse(UpdatedBuffer).
 
 %%----------------------------------------------------------------------
 %% Function: read_most_recent_value/3
