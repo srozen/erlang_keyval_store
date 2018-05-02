@@ -19,7 +19,9 @@
  up(Manager, Key, Value) ->
    Manager ! {self(), {up, Key, Value}},
    receive
-     {Manager, Status} -> io:format(Status)
+     {Manager, Status} ->
+       io:format(Status),
+       io:format("~n")
    end.
 
  %%----------------------------------------------------------------------
@@ -33,7 +35,9 @@
 read(Manager, Keys) ->
   Manager ! {self(), {read, Keys}},
   receive
-    {Manager, Values} -> io:format(Values)
+    {Manager, Values} ->
+      io:format(Values),
+      io:format("~n")
   end.
 
 %%----------------------------------------------------------------------
@@ -46,7 +50,9 @@ read(Manager, Keys) ->
 gc(Manager) ->
   Manager ! {self(), {gc}},
   receive
-    {Manager, Status} -> io:format(Status)
+    {Manager, Status} ->
+      io:format(Status),
+      io:format("~n")
   end.
 
 %%----------------------------------------------------------------------
@@ -58,6 +64,7 @@ gc(Manager) ->
 
 sleep(Time) ->
   timer:sleep(Time),
+  io:format("SLEEP ok~n"),
   ok.
 
 
@@ -77,7 +84,8 @@ loop(Manager, [H|T]) ->
   case List of
     [A|B] when A =:= "up" ->
       [X|Y] = B,
-      up(Manager,X,Y);
+      [Z|_] = Y,
+      up(Manager,X,Z);
     [A|B] when A =:= "read" ->
       read(Manager,B);
     [A|B] when A =:= "sleep" ->
