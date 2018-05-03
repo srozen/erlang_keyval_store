@@ -4,7 +4,6 @@ f().
 c(store).
 c(manager).
 c(client).
-c(old_client).
 
 Store1 = store:start().
 Store2 = store:start().
