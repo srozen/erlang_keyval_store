@@ -1,0 +1,15 @@
+% Copy Paste this in your ERL Machine to test
+
+f().
+c(store).
+c(manag).
+c(client).
+
+Store = store:start().
+
+Manager = manag:start([Store]).
+
+gen_server:call(Manager, {up, foo, bar}).
+gen_server:call(Manager, {up, doo, bae}).
+gen_server:call(Manager, {up, foo, bao}).
+gen_server:call(Manager, {read, [foo, doo]}).
