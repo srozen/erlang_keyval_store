@@ -9,9 +9,6 @@ Store = store:start().
 
 Manager = manager:start([Store]).
 
-
-
-
 client:up(Manager, foo, kek).
 client:up(Manager, bar, kek).
 client:up(Manager, foo, lel).

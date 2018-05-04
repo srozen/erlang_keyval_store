@@ -7,10 +7,11 @@ c(client).
 
 
 
-Store = store:start().
-Manager = manager:start([Store]).
-Manager1 = manager:start([Store]).
-Manager2 = manager:start([Store]).
+Store1 = store:start().
+Store2 = store:start().
+Manager = manager:start([Store1, Store2]).
+Manager1 = manager:start([Store1, Store2]).
+Manager2 = manager:start([Store1, Store2]).
 
 client:up(Manager1, bar, 1).
 client:up(Manager1, bar, 1).
@@ -18,4 +19,6 @@ client:up(Manager2, foo, 2).
 client:up(Manager2, foo, 2).
 client:up(Manager1, make, 3).
 client:up(Manager1, make, 3).
+client:read(Manager1, [make]).
+client:read(Manager1, [foo, bar, make]).
 client:gc(Manager).
