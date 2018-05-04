@@ -1,40 +1,37 @@
 -module (manager).
--export ([start/1, loop/1]).
+-behaviour (gen_server).
+-define(SERVER, ?MODULE).
+-export([start/1]).
+-export([init/1, handle_call/3, handle_cast/2, handle_info/2,
+         terminate/2, code_change/3]).
 
-%%----------------------------------------------------------------------
-%% Function: start/1
-%% Purpose:  Spawns a Manager process
-%% Args:     List of Store pid
-%% Returns:  PID of the spawned Manager
-%%--------------
+start(Stores) ->
+  {_, Pid} = gen_server:start_link(?MODULE, Stores, []),
+  Pid.
 
-start(Stores) -> spawn(manager, loop, [Stores]).
+init(Stores) -> {ok, Stores}.
 
-%%----------------------------------------------------------------------
-%% Function: loop/1
-%% Purpose:  Main loop of the process, pattern matching on received messages
-%% Args:     Store pid
-%% Returns:  N/A
-%%--------------
-loop(Stores) ->
+% Callback Routines
+handle_call({up, Key, Value}, _From, Stores) ->
+  Store = select_store(Stores, Key),
+  Store ! {self(), {up, Key, Value}},
   receive
-    % Receive an UP request and transmit to Store
-    {Client, {up, Key, Value}} ->
-      Store = select_store(Stores, Key),
-      Store ! {self(), {up, Key, Value}},
-      receive
-        {Store, Status} -> Client ! {self(), Status}
-      end;
-    % Receive a READ request with Keys and transmit to Store
-    {Client, {read, Keys}} ->
-      Values = process_reads(Stores, Keys),
-      Client ! {self(), Values};
-    % Receive a GC, do nothing for the moment
-    {Client, gc} ->
-      gc(Stores),
-      Client ! {self(), ok}
-  end,
-  loop(Stores).
+    {Store, Status} ->
+      {reply, Status, Stores}
+  end;
+
+handle_call({read, Keys}, _From, Stores) ->
+  Values = process_reads(Stores, Keys),
+  {reply, Values, Stores};
+
+handle_call({gc}, _From, Stores) ->
+  gc(Stores),
+  {reply, ok, Stores}.
+
+handle_cast(_Msg, State) -> {noreply, State}.
+handle_info(_Info, State) -> {noreply, State}.
+terminate(_Reason, _State) -> ok.
+code_change(_OldVsn, State, _Extra) -> {ok, State}.
 
 %%----------------------------------------------------------------------
 %% Function: process_reads/2
@@ -54,12 +51,18 @@ process_reads(Stores, [Head|Tail]) ->
 process_reads(_, []) -> [].
 
 %%----------------------------------------------------------------------
-%% Function: timestamp/0
-%% Purpose:  Return system time as timestamp
-%% Returns:  timestamp
-%%----------------------------------------------------------------------
-timestamp() ->
-  os:system_time(seconds).
+%% Function: gc/1
+%% Purpose:  Request a garbage collection on every stores.
+%% Args:     Stores, list of Stores
+%% Returns:  Request ok
+%%--------------
+
+gc([Head | Tail]) ->
+  Head ! {self(), {gc}},
+  gc(Tail);
+
+gc([]) -> ok.
+
 
 %%----------------------------------------------------------------------
 %% Function: select_store/2
@@ -83,19 +86,6 @@ select_store(Stores, Elem, LastElem, Key, {Champion, Score}) ->
         false -> select_store(Stores, Elem+1, LastElem, Key, {Champion, Score})
       end
   end.
-
-%%----------------------------------------------------------------------
-%% Function: gc/1
-%% Purpose:  Request a garbage collection on every stores.
-%% Args:     Stores, list of Stores
-%% Returns:  Request ok
-%%--------------
-
-gc([Head | Tail]) ->
-  Head ! {self(), {gc}},
-  gc(Tail);
-
-gc([]) -> ok.
 
 %%----------------------------------------------------------------------
 %% Function: score/2
@@ -126,3 +116,11 @@ sum_list([H|T], Acc) ->
 
 sum_list([], Acc) ->
   Acc.
+
+%%----------------------------------------------------------------------
+%% Function: timestamp/0
+%% Purpose:  Return system time as timestamp
+%% Returns:  timestamp
+%%----------------------------------------------------------------------
+timestamp() ->
+  os:system_time(seconds).

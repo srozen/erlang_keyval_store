@@ -2,14 +2,17 @@
 
 f().
 c(store).
-c(manag).
+c(manager).
 c(client).
 
 Store = store:start().
 
-Manager = manag:start([Store]).
+Manager = manager:start([Store]).
 
-gen_server:call(Manager, {up, foo, bar}).
-gen_server:call(Manager, {up, doo, bae}).
-gen_server:call(Manager, {up, foo, bao}).
-gen_server:call(Manager, {read, [foo, doo]}).
+
+
+
+client:up(Manager, foo, kek).
+client:up(Manager, bar, kek).
+client:up(Manager, foo, lel).
+client:read(Manager, [foo, bar]).

@@ -17,10 +17,7 @@
 %%----------------------------------------------------------------------
 
  up(Manager, Key, Value) ->
-   Manager ! {self(), {up, Key, Value}},
-   receive
-     {Manager, Status} -> Status
-   end.
+   gen_server:call(Manager, {up, Key, Value}).
 
  %%----------------------------------------------------------------------
  %% Function: read/2
@@ -31,10 +28,7 @@
  %%----------------------------------------------------------------------
 
 read(Manager, Keys) ->
-  Manager ! {self(), {read, Keys}},
-  receive
-    {Manager, Values} -> Values
-  end.
+  gen_server:call(Manager, {read, Keys}).
 
 %%----------------------------------------------------------------------
 %% Function: gc/1
@@ -44,10 +38,7 @@ read(Manager, Keys) ->
 %%----------------------------------------------------------------------
 
 gc(Manager) ->
-  Manager ! {self(), gc},
-  receive
-    {Manager, Status} -> Status
-  end.
+  gen_server:call(Manager, {gc}).
 
 %%----------------------------------------------------------------------
 %% Function: sleep/1
