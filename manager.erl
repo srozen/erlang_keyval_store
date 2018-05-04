@@ -14,11 +14,8 @@ init(Stores) -> {ok, Stores}.
 % Callback Routines
 handle_call({up, Key, Value}, _From, Stores) ->
   Store = select_store(Stores, Key),
-  Store ! {self(), {up, Key, Value}},
-  receive
-    {Store, Status} ->
-      {reply, Status, Stores}
-  end;
+  Response = gen_server:call(Store, {up, Key, Value}),
+  {reply, Response, Stores};
 
 handle_call({read, Keys}, _From, Stores) ->
   Values = process_reads(Stores, Keys),
@@ -43,10 +40,7 @@ code_change(_OldVsn, State, _Extra) -> {ok, State}.
 
 process_reads(Stores, [Head|Tail]) ->
   Store = select_store(Stores, Head),
-  Store ! {self(), {read, timestamp(), Head}},
-  receive
-    {Store, Val} -> [Val | process_reads(Stores, Tail)]
-  end;
+  [gen_server:call(Store, {read, timestamp(), Head}) | process_reads(Stores, Tail)];
 
 process_reads(_, []) -> [].
 
@@ -57,9 +51,9 @@ process_reads(_, []) -> [].
 %% Returns:  Request ok
 %%--------------
 
-gc([Head | Tail]) ->
-  Head ! {self(), {gc}},
-  gc(Tail);
+gc([HeadStore | Stores]) ->
+  gen_server:call(HeadStore, {gc}),
+  gc(Stores);
 
 gc([]) -> ok.
 
@@ -123,4 +117,4 @@ sum_list([], Acc) ->
 %% Returns:  timestamp
 %%----------------------------------------------------------------------
 timestamp() ->
-  os:system_time(seconds).
+  os:system_time(millisecond).

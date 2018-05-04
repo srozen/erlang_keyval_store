@@ -79,8 +79,7 @@ read_input(Manager) ->
 %%           List of requests to make
 %% Returns:
 %%----------------------------------------------------------------------
-loop(_, []) ->
-  io:format("End~n");
+loop(_, []) -> "End of File";
 loop(Manager, [H|T]) ->
   List = string:tokens(H," "),
   case List of
@@ -95,9 +94,8 @@ loop(Manager, [H|T]) ->
     [A|B] when A =:= "sleep" ->
       [X|_] = B,
       erlang:display(sleep(list_to_integer(X)));
-    [A] when A =:= "gc" -> gc(Manager);
+    [A] when A =:= "gc" ->
+      erlang:display(gc(Manager));
     [] -> io:format("Other~n")
   end,
-  %%Should we have a loop
-  timer:sleep(500),
   loop(Manager, T).
