@@ -1,62 +1,56 @@
 -module (store).
--define(TIMEOUT, 1000).
--define(GARBAGE_DELAY,1).
--export ([start/0, loop/2, gc/3]).
+-behaviour (gen_server).
+-define(SERVER, ?MODULE).
+-define(GARBAGE_DELAY,1000).
+-export([start/0]).
+-export([init/1, handle_call/3, handle_cast/2, handle_info/2,
+         terminate/2, code_change/3]).
 
-%%----------------------------------------------------------------------
-%% Function: start/0
-%% Purpose:  Spawns a Store process
-%% Returns:  PID of the spawned Store
-%%--------------
-start() -> spawn(store, loop, [#{}, []]).
+start() ->
+  {_, Pid} = gen_server:start_link(?MODULE, #{}, []),
+  Pid.
 
-%%----------------------------------------------------------------------
-%% Function: loop/2
-%% Purpose:  Main loop of the process, pattern matching on received messages
-%% Args:     Partition, basically a Map of Maps,
-%%           Buffer, a buffer of request that weren't processable
-%% Returns:  N/A
-%%--------------
-loop(Partition, Buffer) ->
-  receive
-    {Manager, {gc}} ->
-      PrunedPart = gc(maps:keys(Partition), Partition, timestamp()),
-      erlang:display(PrunedPart),
-      loop(PrunedPart, Buffer);
+init(Partition) -> {ok, Partition}.
 
-    % Receive and process an Up instruction from manager
-    {Manager, {up, Key, Value}} ->
-      NewPart = update_partition(Partition, Key, Value),
-      Manager ! {self(), ok},
-      loop(NewPart, Buffer);
+% Callback Routines
+handle_call({gc}, _From, Partition) ->
+  PrunedPart = gc(maps:keys(Partition), Partition, timestamp()),
+  {reply, ok, PrunedPart};
 
-    % Receive and process a Read instruction
-    {Manager, {read, SnapshotTime, Key}} ->
-      try
-        #{Key := Submap} = Partition,
-        case SnapshotTime =< timestamp() of
-          true ->
-            process_read(Submap, SnapshotTime, Manager),
-            loop(Partition, Buffer);
-          % We store request in buffer for further treatment
-          false ->
-            UpdatedBuffer = [{Manager, SnapshotTime, Key} | Buffer],
-            loop(Partition, UpdatedBuffer)
-        end
-      catch
-        error:_ ->
-          Manager ! {self(), nil},
-          loop(Partition, Buffer)
-      end
-    % If we have TIMEOUT without activity -> treat stalled requests
-    after ?TIMEOUT ->
-      case length(Buffer) > 0 of
-        true ->
-          UpdatedBuffer = process_bufferized_requests(Partition, Buffer),
-          loop(Partition, UpdatedBuffer);
-        false -> loop(Partition, Buffer)
-      end
+handle_call({up, Key, Value}, _From, Partition) ->
+  NewPart = update_partition(Partition, Key, Value),
+  {reply, ok, NewPart};
+
+handle_call({read, SnapshotTime, Key}, Manager, Partition) ->
+  try
+    #{Key := Submap} = Partition,
+    case SnapshotTime =< timestamp() of
+      true ->
+        Val = process_read(Submap, SnapshotTime),
+        {reply, Val, Partition};
+      % We store request in buffer for further treatment
+      false ->
+        %UpdatedBuffer = [{Manager, SnapshotTime, Key} | Buffer],
+        Delay = SnapshotTime - timestamp(),
+        erlang:send_after(Delay, self(), {retransmit, Manager, SnapshotTime, Key}),
+        {noreply, Partition}
+    end
+  catch
+    error:_ ->
+      {reply, nil, Partition}
   end.
+
+
+handle_cast(_Msg, State) -> {noreply, State}.
+handle_info({retransmit, Manager, SnapshotTime, Key}, [Partition, Buffer]) ->
+  #{Key := Submap} = Partition,
+  Val = process_read(Submap, SnapshotTime),
+  gen_server:reply(Manager, Val),
+  {noreply, [Partition, Buffer]};
+
+handle_info(_Info, State) -> {noreply, State}.
+terminate(_Reason, _State) -> ok.
+code_change(_OldVsn, State, _Extra) -> {ok, State}.
 
 %%----------------------------------------------------------------------
 %% Function: process_read/3
@@ -68,33 +62,9 @@ loop(Partition, Buffer) ->
 %% Returns:  N/A
 %%--------------
 
-process_read(Map, SnapshotTime, Manager) ->
+process_read(Map, SnapshotTime) ->
   Timestamps = lists:reverse(maps:keys(Map)),
-  Val = read_most_recent_value(Map, Timestamps, SnapshotTime),
-  Manager ! {self(), Val}.
-
-%%----------------------------------------------------------------------
-%% Function: process_bufferized_requests/2
-%% Purpose:  Fetch the BufferizedRequests and process the Reads that can
-%%           be processed (timestamp comparison)
-%% Args:     Partition : Collection of Data Stored
-%%           Buffer : The Buffer of stalled request
-%% Returns:  Updated Buffer without process
-%%--------------
-
-process_bufferized_requests(Partition, Buffer) ->
-  process_bufferized_requests(Partition, lists:reverse(Buffer), []).
-
-process_bufferized_requests(Partition, [Head | Tail], UpdatedBuffer) ->
-  {Manager, SnapshotTime, Key} = Head,
-  case SnapshotTime =< timestamp() of
-    true ->
-      #{Key := Submap} = Partition,
-      process_read(Submap, SnapshotTime, Manager),
-      process_bufferized_requests(Partition, Tail, UpdatedBuffer);
-    false -> process_bufferized_requests(Partition, Tail, [Head | UpdatedBuffer])
-  end;
-process_bufferized_requests(_, [], UpdatedBuffer) -> lists:reverse(UpdatedBuffer).
+  read_most_recent_value(Map, Timestamps, SnapshotTime).
 
 %%----------------------------------------------------------------------
 %% Function: read_most_recent_value/3
@@ -132,16 +102,6 @@ update_partition(Partition, Key, Value) ->
       Partition#{Key => #{timestamp() => Value}}
   end.
 
-
-
-%%----------------------------------------------------------------------
-%% Function: timestamp/0
-%% Purpose:  Return system time as timestamp
-%% Returns:  timestamp
-%%----------------------------------------------------------------------
-timestamp() ->
-  os:system_time(seconds).
-
 %%----------------------------------------------------------------------
 %% Function: gc/3
 %% Purpose:  Start a garbage collection on the data store excluding the most recent tuples
@@ -150,7 +110,8 @@ timestamp() ->
 %%           Timestamp of the transaction
 %% Returns:  Pruned partition
 %%--------------
-gc([], Partition, Now) -> Partition;
+
+gc([], Partition, _) -> Partition;
 gc([Key|T], Partition, Now) ->
   #{Key := Submap} = Partition,
   [_|Timestamps] = lists:reverse(maps:keys(Submap)),
@@ -164,8 +125,8 @@ gc([Key|T], Partition, Now) ->
 %%           Keys of the map,
 %%           Timestamp of the transaction
 %% Returns:  Pruned submap
-prune_data(Submap, [], Now) ->
-  Submap;
+
+prune_data(Submap, [], _) -> Submap;
 prune_data(Submap, [Timestamp|T], Now) ->
   if
     Now -  Timestamp > ?GARBAGE_DELAY ->
@@ -173,5 +134,10 @@ prune_data(Submap, [Timestamp|T], Now) ->
     true ->
       prune_data(Submap, T, Now)
   end.
-
-
+%%----------------------------------------------------------------------
+%% Function: timestamp/0
+%% Purpose:  Return system time as timestamp
+%% Returns:  timestamp
+%%----------------------------------------------------------------------
+timestamp() ->
+  os:system_time(millisecond).
