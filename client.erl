@@ -1,5 +1,5 @@
 -module (client).
--export ([up/3, read/2, loop/2, gc/1, sleep/1, start/1, read_input/1]).
+-export ([up/3, read/2, loop/2, gc/1, sleep/1, start/1, read_input/2]).
 
 % [Manager] is the PID of the TransactionManager, this could be changed if we
 % start using Sockets instead, for real Distributed System
@@ -65,9 +65,9 @@ start(Manager) -> spawn(client, read_input, [Manager]).
 %% Args:     PID of the manager
 %% Returns:
 %%----------------------------------------------------------------------
-read_input(Manager) ->
+read_input(Manager, File) ->
   %% read the input files to read and write to the manager
-  {ok, Binary} = file:read_file("test_input"),
+  {ok, Binary} = file:read_file(File),
   Content = unicode:characters_to_list(Binary),
   Lines = string:tokens(Content, "\n"),
   loop(Manager, Lines).

@@ -5,8 +5,6 @@ c(store).
 c(manager).
 c(client).
 
-
-
 Store1 = store:start().
 Store2 = store:start().
 Manager = manager:start([Store1, Store2]).

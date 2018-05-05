@@ -9,4 +9,4 @@ Store1 = store:start().
 Store2 = store:start().
 Store3 = store:start().
 Manager1 = manager:start([Store1, Store2, Store3]).
-client:read_input(Manager1).
+client:read_input(Manager1, "test_input").
